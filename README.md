@@ -1,369 +1,152 @@
 # AWS Highly Available Web Application
 
-A hands-on AWS networking and high-availability project demonstrating how to deploy a web application across multiple Availability Zones using an Application Load Balancer, private EC2 instances, VPC networking, security controls, and Route 53 private DNS.
+A hands-on AWS project demonstrating how to build, configure, secure, and validate a highly available web application architecture across multiple Availability Zones.
+
+The project uses Amazon VPC, public and private subnets, Internet Gateway, NAT Gateway, Security Groups, Network ACLs, an Application Load Balancer, private EC2 instances, Nginx, Route 53 Private Hosted Zones, IAM roles, health checks, load balancing, and recovery testing.
 
 ---
 
 ## Overview
 
-This project demonstrates how to build a **highly available web application architecture on AWS** using multiple Availability Zones.
+This project demonstrates the deployment of a highly available web application on AWS using a multi-Availability Zone architecture.
 
-The architecture separates the application into **public and private network layers** and uses an **Application Load Balancer (ALB)** to distribute incoming HTTP traffic across multiple EC2 application servers.
+The application separates internet-facing infrastructure from the application layer.
 
-The project focuses on practical AWS networking concepts, including:
+An internet-facing Application Load Balancer receives HTTP traffic and distributes requests between two EC2 application servers located in private subnets across two Availability Zones.
 
-* Amazon VPC
-* CIDR addressing
-* Public and private subnets
-* Availability Zones
-* Internet Gateway
-* NAT Gateways
-* Route tables
-* Security Groups
-* Network ACLs
-* Application Load Balancer
-* Target Groups
-* EC2
-* Nginx
-* IAM roles
-* Route 53 Private Hosted Zones
-* DNS resolution
-* Health checks
-* High availability
-* Load balancing
-* Network troubleshooting
-
----
-
-## Architecture
-
-![AWS Highly Available Web Application Architecture](./architecture/aws-architecture.png)
-
-The architecture consists of a VPC spanning two Availability Zones.
-
-Internet-facing infrastructure is placed in public subnets, while the application servers are deployed in private subnets.
-
-The main components are:
-
-* **Amazon VPC**
-* **Public and private subnets**
-* **Internet Gateway**
-* **NAT Gateways**
-* **Network ACLs**
-* **Security Groups**
-* **Application Load Balancer**
-* **EC2 application servers**
-* **Target Group**
-* **Route 53 Private Hosted Zone**
-* **IAM Role for EC2**
-* **Amazon Linux**
-* **Nginx**
-
----
-
-## Network Design
-
-### VPC
+### Availability Zones
 
 ```text
+us-east-1a
+us-east-1b
+
+The architecture is designed so that the application does not depend on a single EC2 instance or a single Availability Zone.
+
+Architecture
+
+The application follows this architecture:
+
+Architecture Flow
+
+The primary application traffic flow is:
+
+Internet
+   |
+   v
+Internet Gateway
+   |
+   v
+Application Load Balancer
+   |
+   +-------------------+
+   |                   |
+   v                   v
+EC2 App Server 1   EC2 App Server 2
+us-east-1a         us-east-1b
+Private Subnet     Private Subnet
+Nginx :80          Nginx :80
+
+The EC2 application servers are located in private subnets and are accessed through the Application Load Balancer.
+
+AWS Services Used
+AWS Service	Purpose
+Amazon VPC	Provides the isolated network environment
+Public Subnets	Hosts internet-facing infrastructure
+Private Subnets	Hosts application servers
+Internet Gateway	Provides internet connectivity for public resources
+NAT Gateway	Provides outbound internet access from private subnets
+Route Tables	Controls network traffic routing
+Security Groups	Controls resource-level traffic
+Network ACLs	Provides subnet-level traffic filtering
+Application Load Balancer	Distributes HTTP traffic
+Target Group	Registers EC2 application servers
+EC2	Runs the web application
+Amazon Linux	Operating system for EC2
+Nginx	Web server
+Route 53	Provides private DNS
+IAM Role	Provides AWS permissions to EC2
+Health Checks	Verifies application server availability
+VPC Network Design
+
+The VPC uses the following CIDR:
+
 10.0.0.0/16
-```
 
-The VPC provides the overall network boundary for the application.
+The network is divided into public, private application, and private database subnets.
 
-The network is divided into public, private application, and private database subnets across two Availability Zones.
-
-### Public Subnets
-
-```text
+Public Subnets
 10.0.1.0/24   us-east-1a
 10.0.3.0/24   us-east-1b
-```
 
-The public subnets are used for internet-facing infrastructure such as:
+Public subnets are used for internet-facing infrastructure.
 
-* Application Load Balancer
-* NAT Gateways
+The Application Load Balancer is deployed in the public subnet layer.
 
-These subnets have routes to the Internet Gateway.
+NAT Gateways are also placed in public subnets.
 
-### Private Application Subnets
+Private Application Subnets
+10.0.11.0/24   us-east-1a
+10.0.13.0/24   us-east-1b
 
-```text
-10.0.11.0/24  us-east-1a
-10.0.13.0/24  us-east-1b
-```
+These subnets contain the EC2 application servers.
 
-The private application subnets contain the EC2 application servers.
+The application servers are not intended to be directly exposed to the internet.
 
-The servers do not require public IP addresses and are not intended to be directly accessible from the internet.
+Private Database Subnets
+10.0.21.0/24   us-east-1a
+10.0.22.0/24   us-east-1b
 
-### Private Database Subnets
+These subnets are reserved for a future database layer.
 
-```text
-10.0.21.0/24  us-east-1a
-10.0.22.0/24  us-east-1b
-```
+A future implementation could deploy Amazon RDS with Multi-AZ capabilities.
 
-These subnets are reserved for a future database layer such as Amazon RDS Multi-AZ.
+VPC Configuration
 
----
+The VPC and subnet configuration was created to support the multi-AZ application architecture.
 
-## Application Servers
+EC2 Application Servers
 
 Two EC2 application servers were deployed across separate Availability Zones.
 
-### EC2-1
-
-```text
+EC2 Application Server 1
 Availability Zone: us-east-1a
-Private subnet:    10.0.11.0/24
-```
-
-### EC2-2
-
-```text
+Private Subnet:    10.0.11.0/24
+EC2 Application Server 2
 Availability Zone: us-east-1b
-Private subnet:    10.0.13.0/24
-```
+Private Subnet:    10.0.13.0/24
 
-Nginx was installed and configured on both servers.
+Both servers run:
+
+Amazon Linux
+Nginx
+HTTP :80
 
 Each server returns a different response so that load balancing can be verified.
 
-Example response from the first server:
-
-```text
+Server 1 Response
 Hello from APP SERVER 1
 
 EC2-1 | Private Subnet | us-east-1a
-```
-
-Example response from the second server:
-
-```text
+Server 2 Response
 Hello from APP SERVER 2
 
 EC2-2 | Private Subnet | us-east-1b
-```
+Private EC2 Networking
 
----
+The EC2 instances are deployed in private application subnets.
 
-## Load Balancing
+The application servers do not require public IP addresses for normal application traffic.
 
-An internet-facing **Application Load Balancer** was created to distribute HTTP requests between the two EC2 instances.
+Traffic from the internet reaches the EC2 instances through the Application Load Balancer.
 
-### Load Balancer
+NAT Gateway
 
-```text
-aws-learning-alb
-```
+NAT Gateways provide outbound internet connectivity for resources located in private subnets.
 
-### Target Group
+The private EC2 instances can use NAT Gateway connectivity when they need to access external resources.
 
-```text
-aws-learning-app-tg
-```
+The intended outbound flow is:
 
-### Protocol
-
-```text
-HTTP : 80
-```
-
-Both EC2 instances were registered with the target group.
-
-### Final Target Health
-
-```text
-2 Healthy
-0 Unhealthy
-```
-
-The Application Load Balancer health checks confirmed that both application servers were available.
-
----
-
-## DNS
-
-A Route 53 private hosted zone was created:
-
-```text
-aws-learning.internal
-```
-
-The following DNS record was configured:
-
-```text
-app.aws-learning.internal
-```
-
-The record points to the Application Load Balancer.
-
-DNS resolution from inside the VPC successfully returned the ALB addresses.
-
-This allows clients inside the VPC to access the application using:
-
-```text
-http://app.aws-learning.internal
-```
-
-rather than directly accessing the EC2 instances.
-
----
-
-## Load Balancing Test
-
-The application was tested repeatedly to verify that requests were being distributed between both EC2 instances.
-
-Example test:
-
-```bash
-for i in {1..20}; do
-    curl -s http://app.aws-learning.internal | grep -E "Hello from|EC2-"
-    echo "----------------"
-done
-```
-
-The responses successfully came from both application servers.
-
-Example:
-
-```text
-Hello from APP SERVER 1
-EC2-1 | Private Subnet | us-east-1a
-----------------
-Hello from APP SERVER 2
-EC2-2 | Private Subnet | us-east-1b
-----------------
-Hello from APP SERVER 1
-EC2-1 | Private Subnet | us-east-1a
-----------------
-```
-
-This confirms that the Application Load Balancer is distributing requests between the two healthy targets.
-
----
-
-## Architecture Flow
-
-```text
-                         INTERNET
-                            |
-                            v
-                  +-------------------+
-                  |  Internet Gateway |
-                  +---------+---------+
-                            |
-                            v
-                  +-------------------+
-                  | Application Load  |
-                  |    Balancer       |
-                  +---------+---------+
-                            |
-                     +------+------+
-                     |             |
-                     v             v
-              +------------+  +------------+
-              |   EC2 App 1|  |   EC2 App 2|
-              | us-east-1a |  | us-east-1b |
-              |  Private   |  |  Private   |
-              |  Nginx :80 |  | Nginx :80 |
-              +------------+  +------------+
-                     |             |
-                     +------+------+
-                            |
-                         VPC Network
-
-
-                    Route 53 Private DNS
-                            |
-                            v
-                 app.aws-learning.internal
-                            |
-                            v
-                    Application ALB
-```
-
----
-
-## Security Model
-
-The application security group allows HTTP traffic on port `80` **from the ALB security group**.
-
-The EC2 instances are not intended to be directly exposed to the internet.
-
-The desired traffic flow is:
-
-```text
-Internet
-   |
-   v
- ALB
-   |
-   v
-Private EC2
-```
-
-Rather than exposing the EC2 instances directly:
-
-```text
-Internet
-   |
-   v
- EC2
-```
-
-This design reduces the public attack surface and separates the internet-facing load-balancing layer from the application layer.
-
----
-
-## Network Security
-
-The architecture uses multiple AWS networking and security controls.
-
-### Security Groups
-
-Security Groups control traffic at the instance and load-balancer level.
-
-The application servers allow HTTP traffic from the ALB security group rather than allowing unrestricted internet traffic.
-
-### Network ACLs
-
-Network ACLs provide an additional subnet-level traffic control layer.
-
-They can be used to control inbound and outbound traffic at the subnet boundary.
-
-### Private Subnets
-
-The application servers are deployed in private subnets and do not need to be directly reachable from the public internet.
-
-### NAT Gateways
-
-NAT Gateways provide outbound internet connectivity for resources in private subnets when required, without assigning public IP addresses to the application servers.
-
----
-
-## Route Tables
-
-The VPC uses separate routing behavior for public and private subnets.
-
-### Public Subnet Routing
-
-Public subnets have a route to the Internet Gateway:
-
-```text
-0.0.0.0/0
-     |
-     v
-Internet Gateway
-```
-
-### Private Subnet Routing
-
-Private application subnets can use a NAT Gateway for outbound internet access:
-
-```text
 Private EC2
      |
      v
@@ -374,101 +157,246 @@ Internet Gateway
      |
      v
 Internet
-```
 
-The NAT Gateway does not provide unsolicited inbound access to the private EC2 instances.
+NAT Gateway does not provide unsolicited inbound internet access to the private EC2 instances.
 
----
+Application Load Balancer
 
-## IAM
+An internet-facing Application Load Balancer was created to distribute HTTP traffic across the application servers.
 
-An IAM role was associated with the EC2 instances to provide AWS permissions without requiring long-term access keys to be stored on the servers.
+Load Balancer Name
+aws-learning-alb
+Listener
+HTTP :80
 
-Using IAM roles is preferable to embedding AWS credentials directly into application servers.
+The Application Load Balancer is deployed across multiple Availability Zones.
 
----
+Target Group
 
-## High Availability
+The Application Load Balancer forwards requests to the following target group:
 
-The application servers are deployed across two Availability Zones:
+aws-learning-app-tg
 
-```text
+The two EC2 instances are registered as targets.
+
+Target Health
+2 Healthy
+0 Unhealthy
+
+Both application servers successfully passed the configured health checks.
+
+Application Load Balancer Traffic Flow
+
+The complete application request flow is:
+
+                         INTERNET
+                            |
+                            v
+                  +-------------------+
+                  | Internet Gateway  |
+                  +---------+---------+
+                            |
+                            v
+                  +-------------------+
+                  | Application Load  |
+                  |    Balancer       |
+                  +---------+---------+
+                            |
+                 +----------+----------+
+                 |                     |
+                 v                     v
+        +----------------+    +----------------+
+        | EC2 App Server |    | EC2 App Server |
+        |      #1        |    |      #2        |
+        |   us-east-1a   |    |   us-east-1b   |
+        |    Private     |    |    Private     |
+        |   Nginx :80    |    |   Nginx :80    |
+        +----------------+    +----------------+
+Route 53 Private DNS
+
+A Route 53 Private Hosted Zone was created:
+
+aws-learning.internal
+
+A DNS record was configured:
+
+app.aws-learning.internal
+
+The DNS record points to the Application Load Balancer.
+
+Private Hosted Zone
+
+DNS Record
+
+DNS Resolution
+
+The application can be accessed internally using:
+
+http://app.aws-learning.internal
+
+DNS resolution was tested from inside the VPC and successfully returned the Application Load Balancer addresses.
+
+Security Model
+
+The EC2 application servers are not intended to be directly accessible from the internet.
+
+The preferred architecture is:
+
+Internet
+   |
+   v
+Application Load Balancer
+   |
+   v
+Private EC2
+
+Instead of:
+
+Internet
+   |
+   v
+Public EC2
+
+This separates the internet-facing load-balancing layer from the application layer.
+
+Security Groups
+
+The application security group allows HTTP traffic on port 80 from the Application Load Balancer security group.
+
+The EC2 instances do not need unrestricted inbound HTTP access from the internet.
+
+Conceptually:
+
+ALB Security Group
+        |
+        | HTTP :80
+        v
+EC2 Application Security Group
+
+This limits direct access to the application servers.
+
+Network ACLs
+
+Network ACLs provide an additional subnet-level security layer.
+
+They can control inbound and outbound traffic at the subnet boundary.
+
+The architecture therefore uses multiple layers of network security:
+
+Internet
+   |
+   v
+Internet Gateway
+   |
+   v
+ALB Security Group
+   |
+   v
+Application Security Group
+   |
+   v
+Network ACL
+   |
+   v
+Private EC2
+IAM
+
+An IAM role was associated with the EC2 instances.
+
+The IAM role allows the instances to obtain AWS permissions without storing long-term AWS access keys directly on the servers.
+
+Using IAM roles is preferred over embedding permanent AWS credentials in application servers.
+
+Nginx
+
+Nginx was installed on both EC2 application servers.
+
+The web server listens on:
+
+HTTP :80
+
+Each server provides a unique response so that traffic distribution can be identified during testing.
+
+Load Balancing Test
+
+The application was tested repeatedly to verify that the Application Load Balancer distributes traffic between both EC2 instances.
+
+The following command was used:
+
+for i in {1..20}; do
+    curl -s http://app.aws-learning.internal | grep -E "Hello from|EC2-"
+    echo "----------------"
+done
+
+The responses successfully came from both application servers.
+
+Example:
+
+Hello from APP SERVER 1
+EC2-1 | Private Subnet | us-east-1a
+----------------
+Hello from APP SERVER 2
+EC2-2 | Private Subnet | us-east-1b
+----------------
+Hello from APP SERVER 1
+EC2-1 | Private Subnet | us-east-1a
+----------------
+Hello from APP SERVER 2
+EC2-2 | Private Subnet | us-east-1b
+----------------
+
+This confirms that the Application Load Balancer is distributing requests between the healthy targets.
+
+High Availability
+
+The application is distributed across two Availability Zones:
+
+Availability Zone 1
 us-east-1a
-    |
-    |---- EC2 App 1
-    |
-    +---- Private Application Subnet
+      |
+      v
+Private Application Subnet
+      |
+      v
+EC2 App Server 1
 
 
+Availability Zone 2
 us-east-1b
-    |
-    |---- EC2 App 2
-    |
-    +---- Private Application Subnet
-```
+      |
+      v
+Private Application Subnet
+      |
+      v
+EC2 App Server 2
 
-The Application Load Balancer distributes requests between the healthy instances.
+The Application Load Balancer distributes traffic between the two application servers.
 
-If one application server becomes unhealthy, the load balancer health check can detect the failure and stop routing traffic to that target.
+This provides redundancy at the application-server level.
 
-This provides a foundation for a highly available application architecture.
+If one application server becomes unhealthy, the ALB health checks can detect the failure and stop routing traffic to the unhealthy target.
 
----
+Recovery Testing
 
-## Key AWS Concepts Demonstrated
+A recovery test was performed to validate the behavior of the highly available application architecture.
 
-This project demonstrates practical understanding of:
+The purpose of the test was to verify that the load balancer and application environment can respond appropriately when an application target becomes unavailable and subsequently recovers.
 
-1. VPC architecture
-2. CIDR addressing
-3. Public vs private subnets
-4. Availability Zones
-5. Internet Gateway
-6. NAT Gateway
-7. Route tables
-8. Security Groups
-9. Network ACLs
-10. IAM roles
-11. EC2
-12. Amazon Linux
-13. Nginx
-14. Application Load Balancer
-15. Target Groups
-16. Health Checks
-17. Route 53 Private Hosted Zones
-18. DNS resolution inside a VPC
-19. High availability
-20. Load balancing
-21. Network troubleshooting
+The recovery testing provides additional validation of the high-availability design.
 
----
+Troubleshooting Approach
 
-## Validation
+AWS networking problems can be isolated by testing each layer independently.
 
-The final architecture successfully demonstrated:
+The troubleshooting flow used during this project was:
 
-* Both EC2 instances running
-* Nginx running on both instances
-* Both target instances healthy
-* ALB returning HTTP 200 responses
-* Private DNS resolving inside the VPC
-* Traffic reaching private EC2 instances through the ALB
-* Requests being distributed between both application servers
-* Application servers running across separate Availability Zones
-
----
-
-## Troubleshooting Approach
-
-The lab demonstrated that troubleshooting AWS networking requires checking each layer independently.
-
-The troubleshooting process followed this general flow:
-
-```text
 DNS
  |
  v
-Load Balancer
+Route 53
+ |
+ v
+Application Load Balancer
  |
  v
 Target Group
@@ -486,212 +414,295 @@ Route Table
 EC2
  |
  v
+Nginx
+ |
+ v
 Application
-```
 
-Testing each layer independently makes it much easier to identify where connectivity problems occur.
+This layered troubleshooting approach makes it easier to identify where a connectivity problem exists.
 
-For example:
+DNS Troubleshooting
 
-### DNS Problem
+If DNS does not resolve, verify:
 
-Check:
-
-```text
-Route 53
-Private Hosted Zone
+Route 53 Private Hosted Zone
+        |
+        v
 DNS Record
+        |
+        v
 VPC Association
+        |
+        v
 DNS Resolution
-```
 
-### ALB Problem
+The internal hostname used by the application is:
 
-Check:
+app.aws-learning.internal
+Load Balancer Troubleshooting
 
-```text
+If the ALB does not return the expected application response, check:
+
 ALB Status
+     |
+     v
 Listener
+     |
+     v
 Listener Port
+     |
+     v
 Target Group
-Health Checks
-```
+     |
+     v
+Target Health
+     |
+     v
+EC2 Application
+EC2 Connectivity Troubleshooting
 
-### EC2 Connectivity Problem
+If the ALB cannot reach the EC2 instances, check:
 
-Check:
-
-```text
 Security Group
+      |
+      v
 Network ACL
+      |
+      v
 Route Table
-NAT Gateway
+      |
+      v
+Subnet
+      |
+      v
+EC2
+      |
+      v
+Nginx
+Validation
+
+The final architecture successfully demonstrated:
+
+VPC configuration
+CIDR addressing
+Public subnets
+Private application subnets
+Private database subnet design
+Multiple Availability Zones
 Internet Gateway
-```
+NAT Gateway
+Route tables
+Security Groups
+Network ACLs
+IAM roles
+Private EC2 instances
+Amazon Linux
+Nginx
+Application Load Balancer
+Target Group
+Target health checks
+Route 53 Private Hosted Zone
+Private DNS resolution
+HTTP connectivity
+Load balancing
+Application recovery testing
+Key AWS Concepts Demonstrated
+Amazon VPC
+CIDR addressing
+Public subnets
+Private subnets
+Availability Zones
+Internet Gateway
+NAT Gateway
+Route tables
+Security Groups
+Network ACLs
+IAM roles
+EC2
+Amazon Linux
+Nginx
+Application Load Balancer
+Target Groups
+Health Checks
+Route 53
+Private Hosted Zones
+DNS resolution
+High availability
+Load balancing
+Network troubleshooting
+Application recovery
+Project Screenshots
 
-### Application Problem
+The project contains AWS console screenshots documenting the infrastructure and testing process.
 
-Check:
-
-```text
-EC2 Instance
-Nginx Service
-Port 80
-Local Curl Test
-Application Response
-```
-
----
-
-## Project Structure
-
-```text
+Screenshot	Description
+vpc.png	VPC and network configuration
+private-ec2-networking.png	Private EC2 networking
+nat-gateway.png	NAT Gateway configuration
+application-load-balancer.png	Application Load Balancer
+target-group-2-healthy.png	Target group with two healthy instances
+route53-hosted-zone.png	Route 53 Private Hosted Zone
+route53-record.png	Route 53 DNS record
+load-balancer-test.png	Load-balancing validation
+recovery-test.png	Application recovery testing
+Project Structure
 aws-high-availability-web-app/
 │
-├── architecture/
-│   └── aws-architecture.png
+├── README.md
 │
-└── README.md
-```
+├── architecture/
+│
+└── screenshots/
+    ├── vpc.png
+    ├── private-ec2-networking.png
+    ├── nat-gateway.png
+    ├── application-load-balancer.png
+    ├── target-group-2-healthy.png
+    ├── route53-hosted-zone.png
+    ├── route53-record.png
+    ├── load-balancer-test.png
+    └── recovery-test.png
+Future Improvements
 
-The architecture diagram is stored in the `architecture` directory and displayed directly in this README.
+The current architecture provides a foundation for a more production-ready AWS environment.
 
----
+Potential improvements include:
 
-## Future Improvements
+HTTPS
 
-The current architecture provides a strong foundation, but several improvements could be added.
+Implement HTTPS using:
 
-### HTTPS
+AWS Certificate Manager
+HTTPS listener on the Application Load Balancer
+HTTP to HTTPS redirection
+Auto Scaling
 
-Add HTTPS using:
+Replace the manually deployed EC2 instances with an Auto Scaling Group.
 
-* AWS Certificate Manager
-* HTTPS listener on the Application Load Balancer
-* HTTP to HTTPS redirection
+This would allow EC2 instances to be automatically launched or terminated based on:
 
-### Auto Scaling
+CPU utilization
+Application demand
+Instance health
+Scaling policies
+CloudWatch
 
-Replace the manually created EC2 instances with an **Auto Scaling Group** so that instances can automatically launch or terminate based on demand and health.
+Add Amazon CloudWatch monitoring for:
 
-### CloudWatch
+EC2 metrics
+ALB metrics
+CPU utilization
+Target health
+Application logs
+Alarms
+Systems Manager
 
-Add monitoring and logging using Amazon CloudWatch for:
+Use AWS Systems Manager Session Manager for secure server administration without requiring direct SSH access or a public bastion host.
 
-* EC2 metrics
-* ALB metrics
-* Application logs
-* CPU utilization
-* Health checks
-* Alarms
+RDS Multi-AZ
 
-### Systems Manager
+Deploy Amazon RDS using the reserved private database subnets.
 
-Use AWS Systems Manager Session Manager for server administration instead of requiring a public SSH/bastion host.
+A Multi-AZ database architecture would provide additional database redundancy.
 
-### RDS Multi-AZ
+AWS WAF
 
-Deploy a managed database using Amazon RDS with Multi-AZ capabilities.
+Add AWS WAF to protect the application from common web-based attacks.
 
-The reserved database subnets can then be used for the database layer.
-
-### AWS WAF
-
-Add AWS WAF in front of the application to provide protection against common web-based attacks.
-
-### CloudFront
+CloudFront
 
 Add Amazon CloudFront for:
 
-* Content delivery
-* Caching
-* Reduced latency
-* Additional edge-level protection
+Content delivery
+Caching
+Reduced latency
+Edge-level protection
+Infrastructure as Code
 
-### Infrastructure as Code
+Convert the infrastructure into code using:
 
-Convert the architecture into Infrastructure as Code using:
+Terraform
+AWS CloudFormation
+CI/CD
 
-* Terraform
-* AWS CloudFormation
+Create an automated deployment pipeline using:
 
-### CI/CD
+GitHub
+GitHub Actions
+AWS CodePipeline
+AWS CodeBuild
+Automated Recovery
 
-Create an automated deployment pipeline using services such as:
+Implement automated health checks and recovery mechanisms for improved resilience.
 
-* GitHub
-* GitHub Actions
-* AWS CodePipeline
-* AWS CodeBuild
+Lessons Learned
 
-### Automated Recovery
+This project demonstrated that AWS networking should be approached layer by layer.
 
-Implement automated health checks and recovery mechanisms to improve application resilience.
+When troubleshooting connectivity, it is important to verify:
 
----
+DNS
+ ↓
+Load Balancer
+ ↓
+Target Group
+ ↓
+Security Group
+ ↓
+Network ACL
+ ↓
+Route Table
+ ↓
+EC2
+ ↓
+Application
 
-## What This Project Demonstrates
+Testing each layer independently makes it easier to identify configuration problems and understand how the AWS networking components interact.
 
-This project demonstrates more than simply launching EC2 instances.
+The project also demonstrated the importance of:
 
-It shows how multiple AWS services work together to create a secure and highly available application environment:
+Separating public and private infrastructure
+Deploying application servers across Availability Zones
+Using health checks
+Restricting security-group access
+Using private DNS
+Testing network connectivity independently
+Validating both normal operation and recovery behavior
+Conclusion
 
-```text
-                    INTERNET
-                       |
-                       v
-              +----------------+
-              | Internet       |
-              | Gateway        |
-              +-------+--------+
-                      |
-                      v
-              +----------------+
-              | Application    |
-              | Load Balancer  |
-              +-------+--------+
-                      |
-              +-------+-------+
-              |               |
-              v               v
-       +-------------+  +-------------+
-       | EC2 App 1   |  | EC2 App 2   |
-       | us-east-1a  |  | us-east-1b  |
-       | Private     |  | Private     |
-       +-------------+  +-------------+
-              |               |
-              +-------+-------+
-                      |
-                      v
-                 Application
-```
-
-The architecture demonstrates the fundamental principle of placing the **load-balancing layer in front of private application servers**, while distributing workloads across multiple Availability Zones.
-
----
-
-## Conclusion
-
-This AWS lab successfully demonstrated the deployment and validation of a highly available web application architecture.
+This project successfully demonstrates a highly available AWS web application architecture deployed across multiple Availability Zones.
 
 The final environment includes:
 
-* A custom VPC
-* Public and private subnet architecture
-* Multiple Availability Zones
-* Internet Gateway
-* NAT Gateways
-* Security Groups
-* Network ACLs
-* Application Load Balancer
-* Target Group
-* Two private EC2 application servers
-* Nginx
-* Route 53 Private Hosted Zone
-* IAM role-based access
-* ALB health checks
-* Load balancing validation
+Amazon VPC
+Public and private subnets
+Multiple Availability Zones
+Internet Gateway
+NAT Gateway
+Route tables
+Security Groups
+Network ACLs
+Application Load Balancer
+Target Group
+Two private EC2 application servers
+Amazon Linux
+Nginx
+Route 53 Private Hosted Zone
+IAM role-based access
+ALB health checks
+Load-balancing validation
+Recovery testing
 
-The project also provided practical experience troubleshooting connectivity across the AWS networking stack.
+The architecture provides a strong foundation for a production-style AWS application and can be further improved with Auto Scaling, HTTPS, CloudWatch, RDS Multi-AZ, WAF, CloudFront, Infrastructure as Code, and CI/CD.
 
-The architecture can now be extended toward a more production-oriented environment using **Auto Scaling, HTTPS, CloudWatch, RDS Multi-AZ, WAF, CloudFront, Infrastructure as Code, and CI/CD**.
+Skills Demonstrated
+
+AWS Networking · VPC · EC2 · ALB · Target Groups · Route 53 · NAT Gateway · Internet Gateway · Security Groups · Network ACLs · IAM · Nginx · DNS · Linux · High Availability · Load Balancing · Troubleshooting
+
+
+### One important change
+
+This version **does not use**:
+
+```markdown
+![AWS Highly Available Web Application Architecture](./architecture/aws-architecture.png)
